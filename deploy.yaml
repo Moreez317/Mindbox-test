@@ -32,7 +32,7 @@ metadata:
   name: nginx-deployment
   labels:
     app: nginx
-  # Для уменьения количества запущенных реплик воспльзуемся Another Autoscaler
+  # Для уменьшения количества запущенных реплик воспльзуемся Another Autoscaler
   # kubectl apply -f https://raw.githubusercontent.com/dignajar/another-autoscaler/master/kubernetes/full.yaml
   annotations:
     # Каждый день в 9 утра будут запускаться все 3 реплики
