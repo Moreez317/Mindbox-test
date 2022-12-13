@@ -1,0 +1,92 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: load_balancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx-service
+  ports:
+  - port: 80
+    targetPort: http
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: nginx
+  labels:
+    run: nginx
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+  selector:
+    run: nginx
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+  # Для уменьения количества запущенных реплик воспльзуемся Another Autoscaler
+  # kubectl apply -f https://raw.githubusercontent.com/dignajar/another-autoscaler/master/kubernetes/full.yaml
+  annotations:
+    # Каждый день в 9 утра будут запускаться все 3 реплики
+    another-autoscaler/start-time: "00 9 * * *"
+    another-autoscaler/start-replicas: "3"
+    # А в 21 час 2 будут остановлены
+    another-autoscaler/stop-time: "00 21 * * *"
+    another-autoscaler/stop-replicas: "1" 
+    # Но в первый раз деплой запустится с 3 репликами
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:stable
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+          path: /health
+          port: 5000
+          initialDelaySeconds: 5
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 128Mi
+          limits:
+            memory: 128Mi
+
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ngnix-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageValue: 128Mi
